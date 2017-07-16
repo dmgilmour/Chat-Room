@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block banner %}
+    <a href="../logout">Logout</a>
+{% endblock %}
+
+{% block body %}
+
+{% if chat_list %}
+    {% for c in chat_list %}
+        <a href="{{ c.name }}">{{ c.name }}</a>
+        {% if c.user_id == user.id %}
+            <form action="" method="post">
+                <button name="{{ c.name }}" value="{{ c.name }}">Delete</button>
+            </form>
+        {% endif %}
+        <br>
+    {% endfor %}
+{% else %}
+    <h2>No chats sadly</h2>
+{% endif %}
+
+
+<h4>Make new chat</h4>
+{{ message }}
+<form action="" method="post">
+    Chat Name: <input type="text" name="chat_name"/>
+    <input type="submit" value="Submit"/>
+</form>
+
+
+{% endblock %}

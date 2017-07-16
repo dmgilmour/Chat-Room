@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block banner %}
+    <a href="..">Go back</a>
+    &nbsp; &nbsp; &nbsp;
+    <a href="../logout/">Logout</a>
+{% endblock %}
+
+{% block body %}
+
+    {% if chat %}
+
+        <h4>{{ chat.name }}</h4>
+        <br>
+        {% for m in chat.message_list %}
+            <h5>{{ m.content }}</h5>
+            <h6>{{ m.time }}</h5>
+            <br>
+        {% endfor %}
+
+        <br>
+        <br>
+
+        <form action="" method="post">
+            Message: <input type="text" name="text"/>
+            <input type="submit" value="submit"/>
+        </form>
+
+    {% else %}
+
+        <h4>Nothing rn</h4>
+
+    {% endif %}
+
+{% endblock %}
