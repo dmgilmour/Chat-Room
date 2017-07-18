@@ -1,35 +1,131 @@
-{% extends "base.html" %}
+<html>
+    <head>
+        <title>"a"</title>
 
-{% block banner %}
-    <a href="..">Go back</a>
-    &nbsp; &nbsp; &nbsp;
-    <a href="../logout/">Logout</a>
-{% endblock %}
+        <script type="text/javascript">
 
-{% block body %}
+            function setup() {
+                var btn = document.getElementById("theButton");
+                btn.addEventListener("click", makePost, true); 
+            }
 
-    {% if chat %}
+            function makePost() {
+                var httpRequest = new XMLHttpRequest();
 
-        <h4>{{ chat.name }}</h4>
-        <br>
-        {% for m in chat.message_list %}
-            <h5>{{ m.content }}</h5>
-            <h6>{{ m.time }}</h5>
+                if (!httpRequest) {
+                    alert("Giving up cannot create an XMLHTTP instance");
+                    return false;
+                }
+
+                var message = document.getElementById("messageText").value;
+                httpRequest.onreadystatechange = function() { handlePost(httpRequest, message) };
+
+                httpRequest.open("POST", "/chat/{{ chat.name }}/new_message");
+                httpRequest.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                var data;
+                data = "message=" + message;
+
+                httpRequest.send(data);
+            }
+
+            function handlePost(httpRequest, text) {
+                if (httpRequest.readyState === XMLHttpRequest.DONE) {
+                    if (httpRequest.status === 200) {
+                        clearInput();
+                    } else {
+                        alert("there was a problem with the post request and I don't know why but farnan does");
+                    }
+
+                }
+            }
+
+            function poller() {
+                var httpRequest = new XMLHttpRequest();
+
+                if (!httpRequest) {
+                    alert("aieubpfahei");
+                    return false;
+                }
+
+                httpRequest.onreadystatechange = function() { handlePoll(httpRequest) };
+                httpRequest.open("GET", "{{ chat.name }}/messages");
+                httpRequest.send();
+            }
+
+            function handlePoll(httpRequest) {
+                if (httpRequest.readyState === XMLHttpRequest.DONE) {
+                    // Deal with the new messages here
+                    if (httpRequest.status === 200) {
+                        var table = document.getElementById("message_table");
+
+                        if (httpRequest.responseText == "It's gone!") {
+                            alert("This chatroom was deleted :( ");
+                            window.location.href = "/chat";
+                        }
+                        var rows = JSON.parse(httpRequest.responseText);
+                        for (var i = 0; i < rows.length; i++) {
+                            addRow(rows[i]);
+                        }
+                    } else {
+                        alert("Timed out");
+                    }
+                }
+            }
+
+            function clearInput() {
+                document.getElementById("messageText").value = "";
+            }
+
+            function addRow(row) {
+                var table = document.getElementById("message_table");
+                var new_row = table.insertRow();
+
+                var new_cell, new_text;
+                new_cell = new_row.insertCell();
+                new_text = document.createTextNode(row);
+                new_cell.appendChild(new_text);
+            }
+
+            window.setInterval(function() {
+                poller();
+            }, 1000);
+
+            window.addEventListener("load", setup, true);
+        </script>
+
+        <a href="..">Go back</a>
+        &nbsp; &nbsp; &nbsp;
+        <a href="../logout/">Logout</a>
+    </head>
+    <body>
+
+    
+
+        {% if chat %}
+
+            <h4>{{ chat.name }}</h4>
             <br>
-        {% endfor %}
+            <table id="message_table">
+                {% for m in chat.message_list %}
+                    <tr>
+                        <td>{{ m.content }}</td>
+                    </tr>
+                {% endfor %}
+            </table>
 
-        <br>
-        <br>
+            <br>
+            <br>
 
-        <form action="" method="post">
-            Message: <input type="text" name="text"/>
-            <input type="submit" value="submit"/>
-        </form>
+            <div id="content">
+                    Message: <input type="text" id="messageText" name="messageText" placeholder"Press the button not enter to send a message"/>
+                    <input type="button" id="theButton" value="enter"/>
+            </div>
 
-    {% else %}
+        {% else %}
 
-        <h4>Nothing rn</h4>
+            <h4>Nothing rn</h4>
 
-    {% endif %}
+        {% endif %}
+    </body>
+</html>
 
-{% endblock %}

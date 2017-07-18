@@ -1,3 +1,4 @@
+import json
 from flask import Flask, request, abort, url_for, redirect, session, render_template, flash
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
@@ -20,13 +21,9 @@ class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.String(300))
     chat_id = db.Column(db.Integer, db.ForeignKey("chat.id"))
-    user_id = db.Column(db.Integer)
-    time = db.Column(db.DateTime)
 
-    def __init__(self, content, user_id):
+    def __init__(self, content):
         self.content = content
-        self.user_id = user_id
-        self.time = datetime.now()
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -44,49 +41,15 @@ def initdb_command():
     db.drop_all()
     db.create_all()
 
-    c = Chat("Dan's chatting extrvaganza!!!")
-    u = User("Dan", "ayyo")
-    db.session.add(u)
-    u.owned_chats.append(c)
-
-
-    """
-    c1 = Chat("First")
-    c2 = Chat("Second")
-    db.session.add(c1)
-    db.session.add(c2)
-
-    m1 = Message("git", 2)
-    print(m1.time)
-
-    c1.message_list.append(Message("ayyo", 0))
-    c1.message_list.append(Message("yaao", 1))
-
-    c2.message_list.append(Message("ayyo", 2))
-    """
-
     db.session.commit()
-
-
-@app.cli.command("check")
-def check():
-
-    chats = Chat.query.all()
-    for c in chats:
-        print("")
-        print(c.name)
-        for m in c.message_list:
-            print(m.content)
-            print(m.time)
-            print("")
 
 
 @app.route("/")
 def default():
-    if "user" in session:
+    
+    if (logged_in()):
         return redirect(url_for("home"))
-
-    else:
+    else: 
         return redirect(url_for("login"))
 
 
@@ -101,10 +64,10 @@ def logout():
 def login():
     message = ""
 
-    if "user" in session:
+    if (logged_in()):
         return redirect(url_for("home"))
     
-    elif request.method == "POST":
+    if request.method == "POST":
         user = User.query.filter_by(name=request.form["user"]).first()
         if user:
             if request.form["pass"] == user.password:
@@ -122,10 +85,10 @@ def login():
 def signup():
     message = ""
 
-    if "user" in session:
+    if (logged_in()):
         return redirect(url_for("home"))
 
-    elif request.method == "POST":
+    if request.method == "POST":
         if not User.query.filter_by(name=request.form["user"]).all():
             db.session.add(User(request.form["user"], request.form["pass"]))
             db.session.commit()
@@ -141,7 +104,7 @@ def signup():
 def home():
     message = ""
 
-    if "user" not in session:
+    if (not logged_in()):
         return redirect(url_for("login"))
 
     user = User.query.filter_by(name=session["user"]).first()
@@ -155,25 +118,82 @@ def home():
             else:
                 message = "Chat name already in use"
         else:
-            Chat.query.filter_by(name=user_input).delete()
+            chat = Chat.query.filter_by(name=user_input).first()
+            user.owned_chats.remove(chat)
+            db.session.delete(chat)
             db.session.commit()
 
     chat_list = Chat.query.all()
     return render_template("home.html", chat_list=chat_list, user=user, message=message)
 
 
-@app.route("/chat/<chat_name>", methods = ["GET", "POST"])
+@app.route("/chat/<chat_name>")
 def chat(chat_name):
-    if "user" not in session:
+
+    if (not logged_in()):
         return redirect(url_for("login"))
 
     chat = Chat.query.filter_by(name = chat_name).first()
 
-    if request.method == "POST":
-        chat.message_list.append(Message(request.form["text"], 0))
-        db.session.commit()
+    session["chat_name"] = chat_name
+    session["last_message"] = chat.message_list.count() - 1
 
     return render_template("chat.html", chat=chat)
+
+
+@app.route("/chat/<chat_name>/new_message", methods=["POST"])
+def add(chat_name):
+
+    if (not logged_in()):
+        return
+
+    chat = Chat.query.filter_by(name=chat_name).first()
+    text = next(iter(request.form.values()))
+    chat.message_list.append(Message(text))
+    db.session.commit()
+    return "OK!"
+
+
+@app.route("/chat/<chat_name>/messages")
+def get_messages(chat_name):
+
+    if (not logged_in()):
+        return
+
+    if "chat_name" in session:
+        if session["chat_name"] != chat_name:
+            session["chat_name"] = chat_name
+            session["last_message"] = len(chat.message_list)
+    else:
+        session["chat_name"] = chat_name
+        session["last_message"] = len(chat.message_list)
+        
+    chat = Chat.query.filter_by(name=chat_name).first()
+    if chat:
+        messages = chat.message_list
+        messages = [m.content for m in messages]
+        message_list = []
+        for i in range(session["last_message"] + 1, len(messages)):
+            message_list.append(messages[i])
+        # print("User:                ", session["user"])
+        # print("Last message index:  ", session["last_message"])
+        session["last_message"] = len(messages) - 1
+        # print("New message index:   ", session["last_message"])
+        # print("Messages to display: ", len(message_list))
+        return json.dumps(message_list)
+    else:
+        return "It's gone!" 
+
+
+def logged_in():
+    if "user" in session:
+        if not User.query.filter_by(name=session["user"]).first():
+            session.clear()
+            return False 
+        else:
+            return True
+    else:
+        return False
 
 
 app.secret_key = "git git git brrrrrwrwrwaaaahh"
